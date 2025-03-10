@@ -1,0 +1,589 @@
+[
+  {
+    "service": {
+      "name": "_cloudi_",
+      "paths": [
+        {
+          "path": "/cloudi/api/rpc.json",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc.json/post",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/acl.erl",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/acl.erl/get",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/acl.json",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/acl.json/get",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/acl_add.erl",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/acl_add.erl/post",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/acl_add.json",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/acl_add.json/post",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/acl_remove.erl",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/acl_remove.erl/post",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/acl_remove.json",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/acl_remove.json/post",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/code_path.erl",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/code_path.erl/get",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/code_path.json",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/code_path.json/get",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/code_path_add.erl",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/code_path_add.erl/post",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/code_path_add.json",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/code_path_add.json/post",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/code_path_remove.erl",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/code_path_remove.erl/post",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/code_path_remove.json",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/code_path_remove.json/post",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/code_status.erl",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/code_status.erl/get",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/code_status.json",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/code_status.json/get",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/logging.erl",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/logging.erl/get",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/logging.json",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/logging.json/get",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/logging_file_set.erl",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/logging_file_set.erl/post",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/logging_file_set.json",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/logging_file_set.json/post",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/logging_formatters_set.erl",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/logging_formatters_set.erl/post",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/logging_formatters_set.json",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/logging_formatters_set.json/post",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/logging_level_set.erl",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/logging_level_set.erl/post",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/logging_level_set.json",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/logging_level_set.json/post",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/logging_redirect_set.erl",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/logging_redirect_set.erl/post",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/logging_redirect_set.json",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/logging_redirect_set.json/post",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/logging_set.erl",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/logging_set.erl/post",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/logging_set.json",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/logging_set.json/post",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/logging_status.erl",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/logging_status.erl/get",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/logging_status.json",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/logging_status.json/get",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/logging_status_reset.erl",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/logging_status_reset.erl/get",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/logging_status_reset.json",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/logging_status_reset.json/get",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/logging_stdout_set.erl",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/logging_stdout_set.erl/post",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/logging_stdout_set.json",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/logging_stdout_set.json/post",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/logging_syslog_set.erl",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/logging_syslog_set.erl/post",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/logging_syslog_set.json",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/logging_syslog_set.json/post",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/nodes.erl",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/nodes.erl/get",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/nodes.json",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/nodes.json/get",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/nodes_add.erl",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/nodes_add.erl/post",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/nodes_add.json",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/nodes_add.json/post",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/nodes_alive.erl",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/nodes_alive.erl/get",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/nodes_alive.json",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/nodes_alive.json/get",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/nodes_dead.erl",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/nodes_dead.erl/get",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/nodes_dead.json",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/nodes_dead.json/get",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/nodes_get.erl",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/nodes_get.erl/get",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/nodes_get.json",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/nodes_get.json/get",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/nodes_remove.erl",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/nodes_remove.erl/post",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/nodes_remove.json",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/nodes_remove.json/post",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/nodes_set.erl",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/nodes_set.erl/post",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/nodes_set.json",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/nodes_set.json/post",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/nodes_status.erl",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/nodes_status.erl/post",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/nodes_status.json",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/nodes_status.json/post",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/service_subscriptions.erl",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/service_subscriptions.erl/post",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/service_subscriptions.json",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/service_subscriptions.json/post",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/services.erl",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/services.erl/get",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/services.json",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/services.json/get",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/services_add.erl",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/services_add.erl/post",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/services_add.json",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/services_add.json/post",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/services_remove.erl",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/services_remove.erl/post",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/services_remove.json",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/services_remove.json/post",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/services_restart.erl",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/services_restart.erl/post",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/services_restart.json",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/services_restart.json/post",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/services_resume.erl",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/services_resume.erl/post",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/services_resume.json",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/services_resume.json/post",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/services_search.erl",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/services_search.erl/post",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/services_search.json",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/services_search.json/post",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/services_status.erl",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/services_status.erl/post",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/services_status.json",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/services_status.json/post",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/services_suspend.erl",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/services_suspend.erl/post",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/services_suspend.json",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/services_suspend.json/post",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/services_update.erl",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/services_update.erl/post",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/services_update.json",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/api/rpc/services_update.json/post",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/log/cloudi.log/get",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/log/cloudi.log/head",
+          "enabled": true
+        },
+        {
+          "path": "/cloudi/log/cloudi.log/options",
+          "enabled": true
+        }
+      ]
+    }
+  }
+]
