@@ -8,9 +8,14 @@ from services_frame import ServicesFrame
 from about_frame import AboutFrame
 from logs_frame import LogsFrame
 
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-class TkLoudiApp(tk.Tk):
-    def __init__(self, config_file="files/api.conf"):
+CONFIG_FILE = os.path.join(SCRIPT_DIR, "files/api.conf")
+ICON_FILE = os.path.join(SCRIPT_DIR, "assets/icon.png")
+
+
+class TkloudiApp(tk.Tk):
+    def __init__(self, config_file=CONFIG_FILE):
         super().__init__()
         self.config_file = config_file
         self.config_data = self.load_config()
@@ -44,7 +49,7 @@ class TkLoudiApp(tk.Tk):
             return default_config
 
     def load_icon(self):
-        icon_path = self.config_data.get("icon", "assets/icon.png")
+        icon_path = self.config_data.get("icon", ICON_FILE)
 
         if os.path.exists(icon_path):
             try:
@@ -104,12 +109,12 @@ def main():
         "--config",
         "-c",
         type=str,
-        default="files/api.conf",
+        default=CONFIG_FILE,
         help="Path to the configuration file",
     )
     args = parser.parse_args()
 
-    app = TkLoudiApp(config_file=args.config)
+    app = TkloudiApp(config_file=args.config)
     app.mainloop()
 
 

@@ -219,3 +219,25 @@ def parse_erlang_response(text):
         # print(f"Error parsing Erlang response: {str(e)}")
         traceback.print_exc()
         return []
+
+
+# WIP
+def parse_erlang_services(contents):
+    m = re.search(r"\{services,\s*\[(.*?)\]\}\.", contents, re.DOTALL)
+    if not m:
+        return []
+    services_block = m.group(1).strip()
+    raw_entries = re.findall(r"\[\s*(.*?)\s*\](?=,|\])", services_block, re.DOTALL)
+    services = []
+    for raw in raw_entries:
+        service = {}
+        for key, val in re.findall(r"\{([^,]+),\s*([^\}]+)\}", raw):
+            k = key.strip()
+            v = val.strip()
+            if (v.startswith('"') and v.endswith('"')) or (
+                v.startswith("'") and v.endswith("'")
+            ):
+                v = v[1:-1]
+            service[k] = v
+        services.append(service)
+    return services

@@ -14,6 +14,9 @@ from services_helper import (
     parse_erlang_response,
 )
 
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+CONFIG_FILE = os.path.join(SCRIPT_DIR, "files/api.conf")
+
 
 class ServicesFrame(tk.Frame):
     def __init__(self, master):
@@ -29,11 +32,13 @@ class ServicesFrame(tk.Frame):
         self.create_widgets()
 
     def load_config(self):
-        config_path = "files/api.conf"
+        config_path = CONFIG_FILE
         default_config = {
             "title": "tkloudi",
             "icon": "assets/icon.png",
-            "cloudi_conf_files": ["files/cloudi_minimal.conf"],
+            "cloudi_conf_files": [
+                os.path.join(SCRIPT_DIR, "files/cloudi_minimal.conf")
+            ],
         }
 
         try:
@@ -45,17 +50,15 @@ class ServicesFrame(tk.Frame):
                     json.dump(default_config, f, indent=2)
                 return default_config
         except Exception as e:
-            # print(f"Error loading config: {e}")
             return default_config
 
     def save_config(self):
-        config_path = "files/api.conf"
+        config_path = CONFIG_FILE
         try:
             with open(config_path, "w") as f:
                 json.dump(self.config, f, indent=2)
             return True
         except Exception as e:
-            # print(f"Error saving config: {e}")
             return False
 
     def create_widgets(self):
@@ -132,9 +135,14 @@ class ServicesFrame(tk.Frame):
         browse_button.pack(side=tk.LEFT, padx=2)
 
         load_button = ttk.Button(
-            config_buttons_frame, text="Load Selected", command=self.load_selected_file
+            config_buttons_frame, text="Load", command=self.load_selected_file
         )
         load_button.pack(side=tk.LEFT, padx=2)
+
+        unload_button = ttk.Button(
+            config_buttons_frame, text="Unload", command=self.unload_services
+        )
+        unload_button.pack(side=tk.LEFT, padx=2)
 
         set_default_button = ttk.Button(
             config_buttons_frame,
@@ -189,9 +197,14 @@ class ServicesFrame(tk.Frame):
             ).pack(side=tk.LEFT, padx=5)
 
         self.update_status_btn = ttk.Button(
-            status_frame, text="Update Status", command=self.update_service_status
+            status_frame, text="Get Status", command=self.update_service_status
         )
         self.update_status_btn.pack(side=tk.LEFT, padx=(20, 0))
+
+        self.get_config_btn = ttk.Button(
+            status_frame, text="Get Config", command=self.get_service_config
+        )
+        self.get_config_btn.pack(side=tk.LEFT, padx=(5, 0))
 
         self.status_timer = None
 
@@ -267,8 +280,7 @@ class ServicesFrame(tk.Frame):
         self.canvas.itemconfig(1, width=canvas_width)
 
     def _on_mousewheel(self, event):
-        if self.tab_control.index(self.tab_control.select()) == 0:
-            self.canvas.yview_scroll(-1 * (event.delta // 120), "units")
+        self.canvas.yview_scroll(-1 * (event.delta // 120), "units")
 
     def log_error(self, message):
         if hasattr(self.master, "log_error"):
@@ -312,7 +324,6 @@ class ServicesFrame(tk.Frame):
         if interval != "disabled":
             interval_ms = int(interval) * 1000
             self.status_timer = self.after(interval_ms, self.auto_refresh_status)
-            # print(f"Auto-refresh enabled every {interval} seconds")
 
     def auto_refresh_status(self):
         self.update_service_status(is_auto_refresh=True)
@@ -324,61 +335,224 @@ class ServicesFrame(tk.Frame):
 
     def update_service_status(self, is_auto_refresh=False):
         server = self.server_var.get().rstrip("/")
-        url = f"{server}/cloudi/api/rpc/services_status.erl"
-
-        # print(f"Requesting services status from: {url}")
+        url = f"{server}/cloudi/api/rpc/services_status.json"
         try:
-            headers = {
-                "Content-Type": "application/erlang",
-                "Accept": "application/erlang",
-            }
+            headers = {"Content-Type": "application/json", "Accept": "application/json"}
             response = requests.post(
                 url, data="[]", headers=headers, verify=False, timeout=10
             )
+            if response.status_code == 200:
+                if not self.services_data:
+                    self.log_warning(
+                        "Getting status without configuration loaded. Services will have limited information."
+                    )
+                    self.display_services(show_warning=True)
+                self.process_status_response(response.text, is_auto_refresh)
+                for service in self.services_data:
+                    self.update_service_display(id(service))
+            else:
+                self.log_error(
+                    f"Error getting service status: HTTP {response.status_code}"
+                )
+        except Exception as e:
+            self.log_error(f"Failed to get service status: {str(e)}")
+
+    def get_service_config(self):
+        server = self.server_var.get().rstrip("/")
+        url = f"{server}/cloudi/api/rpc/services.json"
+
+        try:
+            headers = {
+                "Accept": "application/json",
+            }
+            self.log_info(f"Requesting config from: {url}")
+            response = requests.get(url, headers=headers, verify=False, timeout=30)
 
             if response.status_code == 200:
-                # print(f"Got successful response, length: {len(response.text)} bytes")
-                # print(f"Response preview: {response.text[:100]}...")
-                self.process_status_response(response.text, is_auto_refresh)
-            # else:
-            # print(f"Error getting service status: HTTP {response.status_code}")
-            # print(f"Response: {response.text}")
+                self.show_config_response(response.text)
+            else:
+                self.log_error(
+                    f"Error getting service config: HTTP {response.status_code} - {response.text[:100]}"
+                )
         except Exception as e:
-            print(f"Error updating service status: {str(e)}")
+            self.log_error(f"Error getting service config: {str(e)}")
+            import traceback
+
+            traceback.print_exc()
+
+    def show_config_response(self, response_text):
+        popup = tk.Toplevel(self)
+        popup.title("Service Configuration")
+        popup.geometry("800x600")
+        popup.transient(self.winfo_toplevel())
+
+        frame = ttk.Frame(popup, padding=10)
+        frame.pack(fill=tk.BOTH, expand=True)
+
+        text_frame = ttk.Frame(frame)
+        text_frame.pack(fill=tk.BOTH, expand=True)
+
+        v_scroll = ttk.Scrollbar(text_frame)
+        v_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+
+        h_scroll = ttk.Scrollbar(text_frame, orient=tk.HORIZONTAL)
+        h_scroll.pack(side=tk.BOTTOM, fill=tk.X)
+
+        text = tk.Text(
+            text_frame,
+            wrap=tk.NONE,
+            xscrollcommand=h_scroll.set,
+            yscrollcommand=v_scroll.set,
+        )
+        text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        v_scroll.config(command=text.yview)
+        h_scroll.config(command=text.xview)
+
+        try:
+            parsed = json.loads(response_text)
+            formatted = json.dumps(parsed, indent=2)
+            text.insert(tk.END, formatted)
+        except:
+            text.insert(tk.END, response_text)
+
+        ttk.Button(frame, text="Close", command=popup.destroy).pack(pady=(10, 0))
+
+    def process_config_response(self, response_text):
+        try:
+            parsed_data = json.loads(response_text)
+
+            if isinstance(parsed_data, dict) and "services" in parsed_data:
+                config_data = parsed_data["services"]
+            elif isinstance(parsed_data, list):
+                config_data = parsed_data
+            else:
+                self.log_error(
+                    "Invalid response format - expected JSON with services list"
+                )
+                return
+
+            if not config_data:
+                self.log_warning("No config data found in response")
+                return
+
+            unmatched_configs = []
+            matched_count = 0
+
+            for config in config_data:
+                if not isinstance(config, dict):
+                    continue
+
+                uuid = config.get("id", "")
+
+                config_copy = {k: v for k, v in config.items() if k != "id"}
+
+                matched = False
+                for service in self.services_data:
+                    if service.get("uuid") == uuid:
+                        service["metadata"] = service.get("metadata", {})
+                        service["metadata"]["config"] = config_copy
+                        service["metadata"]["config_original"] = config
+                        matched = True
+                        matched_count += 1
+                        break
+
+                if not matched:
+                    unmatched_configs.append(config)
+
+            self.log_info(
+                f"Config update: {matched_count} matched, {len(unmatched_configs)} unmatched"
+            )
+
+            if unmatched_configs:
+                self.show_unmatched_configs(unmatched_configs)
+
+            self.display_services()
+
+        except Exception as e:
+            self.log_error(f"Error processing config response: {str(e)}")
+            import traceback
+
+            traceback.print_exc()
 
     def process_status_response(self, response_text, is_auto_refresh=False):
         try:
+            parsed_data = json.loads(response_text)
 
-            status_data = parse_erlang_response(response_text)
-            if not status_data:
-                # print("No status data found in response")
+            if isinstance(parsed_data, list):
+                status_data = parsed_data
+            elif isinstance(parsed_data, dict) and any(
+                isinstance(v, list) for v in parsed_data.values()
+            ):
+                for value in parsed_data.values():
+                    if isinstance(value, list):
+                        status_data = value
+                        break
+            else:
+                self.log_error(
+                    f"Unexpected status response format: {type(parsed_data)}"
+                )
                 return
 
-            # print(f"Received status for {len(status_data)} services")
+            if not status_data:
+                return
+
+            if not self.services_data:
+                new_services = []
+                for status in status_data:
+                    service = {}
+                    service["uuid"] = status.get("id", "")
+                    service["prefix"] = status.get("prefix", "")
+                    if "module" in status:
+                        service["label"] = status.get("module", "Unknown")
+                    elif "file_path" in status:
+                        service["label"] = os.path.basename(
+                            status.get("file_path", "Unknown")
+                        )
+                    else:
+                        service["label"] = "Unknown Service"
+                    service["status"] = status
+                    new_services.append(service)
+                self.services_data = new_services
+                self.display_services(show_warning=True)
+                return
 
             self.update_service_status_indicators(status_data, is_auto_refresh)
 
         except Exception as e:
-            # print(f"Error processing status response: {str(e)}")
+            self.log_error(f"Error processing status response: {str(e)}")
             import traceback
 
             traceback.print_exc()
 
     def update_service_status_indicators(self, status_data, is_auto_refresh=False):
         if not hasattr(self, "service_widgets"):
-            # print("No service widgets available for updating status")
             return
 
         unmatched_services = []
         matched_count = 0
 
+        for service_id, widgets in self.service_widgets.items():
+            if "status_indicator" in widgets and "led_id" in widgets:
+                widgets["status_indicator"].itemconfig(widgets["led_id"], fill="gray")
+
+            service = next((s for s in self.services_data if id(s) == service_id), None)
+            if service and "status" in service:
+                service["status"]["suspended"] = False
+                service["status"]["conflict"] = False
+
         conflict_map = {}
         for status in status_data:
             key = None
-            if status.get("type") == "internal" and "module" in status:
-                key = f"internal:{status['module']}:{status['prefix']}"
-            elif status.get("type") == "external" and "file_path" in status:
-                key = f"external:{status['file_path']}:{status['prefix']}"
+            status_type = status.get("type", "")
+            status_module = status.get("module", "")
+            status_file_path = status.get("file_path", "")
+            status_prefix = status.get("prefix", "")
+
+            if status_type == "internal" and status_module:
+                key = f"internal:{status_module}:{status_prefix}"
+            elif status_type == "external" and status_file_path:
+                key = f"external:{status_file_path}:{status_prefix}"
 
             if key:
                 if key in conflict_map:
@@ -390,28 +564,21 @@ class ServicesFrame(tk.Frame):
             if len(statuses) > 1:
                 for status in statuses:
                     status["conflict"] = True
-                # print(f"Found conflict: {key} has {len(statuses)} instances")
 
         for service_id, widgets in self.service_widgets.items():
             service = next((s for s in self.services_data if id(s) == service_id), None)
             if not service:
                 continue
 
-            # print(f"Checking service: {service.get('label')}, prefix: {service.get('prefix')}")
-
             matched_status = None
             for status in status_data:
                 if self.is_matching_service(service, status):
                     matched_status = status
-                    # print(f"Found match for {service.get('label')} with uuid: {status.get('uuid')}")
-                    # print(f"Status object: {matched_status}")
-                    suspended = matched_status.get("suspended", False)
-                    # print(f"*** SUSPENDED FLAG VALUE: {suspended} (type: {type(suspended).__name__}) ***")
                     break
 
             if matched_status:
                 matched_count += 1
-                uuid = matched_status.get("uuid", "")
+                uuid = matched_status.get("id", "")
                 if not uuid and "key" in matched_status:
                     uuid = matched_status["key"]
                 service["uuid"] = uuid
@@ -420,8 +587,13 @@ class ServicesFrame(tk.Frame):
                 if key:
                     self.service_uuid_map[key] = uuid
 
+                if "metadata" not in service:
+                    service["metadata"] = {}
+
+                service["metadata"]["status"] = matched_status
+
                 service["status"] = {
-                    "uuid": matched_status.get("uuid", ""),
+                    "uuid": matched_status.get("id", ""),
                     "suspended": matched_status.get("suspended", False),
                     "conflict": matched_status.get("conflict", False),
                     "type": matched_status.get("type", ""),
@@ -430,59 +602,35 @@ class ServicesFrame(tk.Frame):
                     "file_path": matched_status.get("file_path", ""),
                 }
 
-                # print(f"Service status after update: suspended = {service['status'].get('suspended', False)}")
-
                 self.update_service_display(service_id)
 
                 if "status_indicator" in widgets and "led_id" in widgets:
-                    current_color = widgets["status_indicator"].itemcget(
-                        widgets["led_id"], "fill"
-                    )
                     expected_color = (
                         "yellow"
                         if service["status"].get("suspended", False)
                         else "green"
                     )
-                    # print( f"LED color check: Current={current_color}, Expected={expected_color}")
+                    widgets["status_indicator"].itemconfig(
+                        widgets["led_id"], fill=expected_color
+                    )
 
-                    if current_color != expected_color:
-                        # print(f"*** FORCING COLOR UPDATE to {expected_color} ***")
-                        widgets["status_indicator"].itemconfig(
-                            widgets["led_id"], fill=expected_color
-                        )
-
-                # print( f"Updated status for {service.get('label', 'Unknown')}: {'Suspended' if matched_status.get('suspended', False) else 'Active'}")
+                if "status_tooltip" in widgets:
+                    status_text = (
+                        "Suspended"
+                        if service["status"].get("suspended", False)
+                        else "Active"
+                    )
+                    if service["status"].get("conflict", False):
+                        status_text += " (CONFLICT)"
+                    widgets["status_tooltip"].configure(text=status_text)
             else:
-                if "status_indicator" in widgets:
+                if "status_indicator" in widgets and "led_id" in widgets:
                     widgets["status_indicator"].itemconfig(
                         widgets["led_id"], fill="gray"
                     )
 
-                if "uuid_label" in widgets:
-                    widgets["uuid_label"].grid_forget()
-
-                if "uuid_entry" not in widgets:
-                    uuid_frame = tk.Frame(widgets["frame"])
-                    uuid_frame.grid(row=1, column=0, sticky="w", padx=25)
-
-                    ttk.Label(uuid_frame, text="UUID: ").pack(side=tk.LEFT)
-
-                    uuid_var = tk.StringVar(value=service.get("uuid", ""))
-                    uuid_entry = ttk.Entry(uuid_frame, textvariable=uuid_var, width=36)
-                    uuid_entry.pack(side=tk.LEFT)
-
-                    widgets["uuid_frame"] = uuid_frame
-                    widgets["uuid_entry"] = uuid_entry
-                    widgets["uuid_var"] = uuid_var
-
-                    def update_uuid(name, index, mode, s=service, var=uuid_var):
-                        s["uuid"] = var.get()
-
-                        key = self.get_service_key(s)
-                        if key and var.get():
-                            self.service_uuid_map[key] = var.get()
-
-                    uuid_var.trace_add("write", update_uuid)
+                if "status_tooltip" in widgets:
+                    widgets["status_tooltip"].configure(text="Not running")
 
         for status in status_data:
             matched = False
@@ -494,13 +642,11 @@ class ServicesFrame(tk.Frame):
             if not matched:
                 unmatched_services.append(status)
 
+        # Show unmatched services dialog
         if unmatched_services and not is_auto_refresh:
             self.show_unmatched_services(unmatched_services)
 
-        # print(f"Status update complete: {matched_count} services matched, {len(unmatched_services)} unmatched")
-
     def update_service_display(self, service_id):
-        """Force update of a service's display elements"""
         widgets = self.service_widgets.get(service_id)
         if not widgets:
             return
@@ -509,62 +655,61 @@ class ServicesFrame(tk.Frame):
         if not service:
             return
 
-        # print(f"Updating display for service {service.get('label')}")
-
         suspended = False
         if "status" in service:
             suspended = service["status"].get("suspended", False)
-            # print(f"Service has status info - suspended: {suspended}")
-        # else:
-        # print("Service has no status info")
 
-        if "status_indicator" in widgets and "status" in service:
-            color = "yellow" if suspended else "green"
-            # print(f"Setting LED color to {color} for {service.get('label')} (suspended={suspended})")
-
-            if "led_id" in widgets:
-                widgets["status_indicator"].itemconfig(widgets["led_id"], fill=color)
-                # print(f"Updated LED color to {color}")
-            # else:
-            # print(f"WARNING: No led_id found in widgets for {service.get('label')}")
+        if "status_indicator" in widgets and "led_id" in widgets:
+            if "status" not in service:
+                color = "gray"  # No status means gray
+            else:
+                color = "yellow" if suspended else "green"
+            widgets["status_indicator"].itemconfig(widgets["led_id"], fill=color)
 
             if "status_tooltip" in widgets:
-                status_text = "Suspended" if suspended else "Active"
-                if service["status"].get("conflict", False):
-                    status_text += " (CONFLICT)"
+                if "status" not in service:
+                    status_text = "Not running"
+                else:
+                    status_text = "Suspended" if suspended else "Active"
+                    if service["status"].get("conflict", False):
+                        status_text += " (CONFLICT)"
                 widgets["status_tooltip"].configure(text=status_text)
-                # print(f"Updated tooltip text to: {status_text}")
 
         if "uuid" in service and service["uuid"]:
             uuid = service["uuid"]
             has_conflict = service.get("status", {}).get("conflict", False)
+            uuid_container = widgets.get("uuid_container")
 
-            if "uuid_entry" in widgets:
-                widgets["uuid_frame"].destroy()
-                del widgets["uuid_frame"]
-                del widgets["uuid_entry"]
-                del widgets["uuid_var"]
+            if uuid_container:
+                for widget in uuid_container.winfo_children():
+                    widget.destroy()
 
-                uuid_label = ttk.Label(
-                    widgets["frame"],
-                    text=f"UUID: {uuid}" + (" (CONFLICT)" if has_conflict else ""),
+                ttk.Label(
+                    uuid_container,
+                    text="UUID: ",
                     font=("TkDefaultFont", 8),
                     foreground="red" if has_conflict else "black",
-                )
-                uuid_label.grid(row=1, column=0, sticky="w", padx=25)
-                widgets["uuid_label"] = uuid_label
-            elif "uuid_label" in widgets:
-                if has_conflict:
-                    widgets["uuid_label"].config(
-                        text=f"UUID: {uuid} (CONFLICT)", foreground="red"
-                    )
-                else:
-                    widgets["uuid_label"].config(
-                        text=f"UUID: {uuid}", foreground="black"
-                    )
-                widgets["uuid_label"].grid(row=1, column=0, sticky="w", padx=25)
+                ).pack(side=tk.LEFT)
 
-            # print(f"Updated UUID label for {service.get('label')}: {uuid}")
+                uuid_var = tk.StringVar(value=uuid)
+                uuid_entry = ttk.Entry(
+                    uuid_container,
+                    textvariable=uuid_var,
+                    font=("TkDefaultFont", 8),
+                    width=36,
+                    state="readonly",
+                )
+                uuid_entry.pack(side=tk.LEFT)
+                widgets["uuid_var"] = uuid_var
+                widgets["uuid_entry"] = uuid_entry
+
+                if has_conflict:
+                    ttk.Label(
+                        uuid_container,
+                        text=" (CONFLICT)",
+                        font=("TkDefaultFont", 8),
+                        foreground="red",
+                    ).pack(side=tk.LEFT)
 
     def show_unmatched_services(self, unmatched_services):
         if not unmatched_services:
@@ -607,7 +752,7 @@ class ServicesFrame(tk.Frame):
         h_scroll.config(command=text.xview)
 
         for i, service in enumerate(unmatched_services):
-            uuid = service.get("uuid", "Unknown UUID")
+            uuid = service.get("id", "Unknown UUID")
             prefix = service.get("prefix", "No prefix")
             service_type = service.get("type", "Unknown type")
 
@@ -715,11 +860,19 @@ class ServicesFrame(tk.Frame):
 
         save_button = ttk.Button(button_frame, text="Save", command=save_file)
         save_button.pack(side=tk.RIGHT, padx=(5, 0))
-
         cancel_button = ttk.Button(
             button_frame, text="Cancel", command=editor_window.destroy
         )
         cancel_button.pack(side=tk.RIGHT, padx=5)
+
+    def complete_config_text(self, text):
+        if text.startswith("[") and not text.rstrip().endswith("]"):
+            end_index = find_closing_bracket(text, 0)
+            if end_index != -1:
+                return text[: end_index + 1]
+            else:
+                return text + "]"
+        return text
 
     def load_conf_files(self):
         self.services_data = []
@@ -738,42 +891,38 @@ class ServicesFrame(tk.Frame):
 
             success = False
             for filepath in filepath_variations:
-                # print(f"Attempting to load configuration from: {filepath}")
 
                 if not os.path.exists(filepath):
-                    # print(f"File not found: {filepath}")
                     continue
 
                 try:
                     with open(filepath, "r") as file:
                         conf_content = file.read()
 
-                    # print( f"Successfully read file: {filepath}, size: {len(conf_content)} bytes")
-
                     services = extract_services_direct(conf_content, filepath)
 
                     if not services:
-                        # print("Direct extraction failed, trying legacy parser...")
                         services = parse_services(conf_content, filepath)
 
                     if services:
+                        for s in services:
+                            if "original_entry" in s and s["original_entry"]:
+                                s.setdefault("metadata", {})["config_service_add"] = (
+                                    self.complete_config_text(s["original_entry"])
+                                )
                         self.services_data.extend(services)
                         files_loaded += 1
-                        # print( f"Successfully loaded {len(services)} services from: {filepath}")
                         success = True
                         break
-                    # else:
-                    # print(f"No services found in {filepath}")
+
                 except Exception as e:
                     import traceback
 
-                    # print(f"Error processing file {filepath}: {str(e)}")
                     traceback.print_exc()
 
             if not success:
                 print(f"Failed to load from any path variation of: {filepath_input}")
 
-        # print(f"Total services found: {len(self.services_data)}")
         self.display_services()
 
         if files_loaded == 0:
@@ -783,19 +932,28 @@ class ServicesFrame(tk.Frame):
         if hasattr(self, "services_data"):
             self.display_services()
 
-    def display_services(self):
+    def display_services(self, show_warning=False):
         for widget in self.scrollable_frame.winfo_children():
             widget.destroy()
 
         self.service_widgets = {}
 
         if not self.services_data:
-            no_services_label = ttk.Label(
-                self.scrollable_frame,
-                text="No services found. Please load a valid CloudI configuration file.",
-            )
-            no_services_label.pack(pady=20)
-            return
+            if show_warning:
+                warning_label = ttk.Label(
+                    self.scrollable_frame,
+                    text="Warning: No configuration loaded. Limited service information available.",
+                    foreground="red",
+                    font=("TkDefaultFont", 10, "bold"),
+                )
+                warning_label.pack(pady=(20, 10))
+            else:
+                no_services_label = ttk.Label(
+                    self.scrollable_frame,
+                    text="No services found. Please load a valid CloudI configuration file.",
+                )
+                no_services_label.pack(pady=20)
+                return
 
         filtered_services = []
         show_cloudi = self.show_cloudi_var.get()
@@ -819,202 +977,360 @@ class ServicesFrame(tk.Frame):
 
             filtered_services.append(service)
 
-        header_frame = ttk.Frame(self.scrollable_frame)
-        header_frame.pack(fill=tk.X, padx=5, pady=(0, 5))
+        table_frame = ttk.Frame(self.scrollable_frame)
+        table_frame.pack(fill=tk.X, expand=True, padx=5, pady=5)
+        table_frame.columnconfigure(1, weight=1)
 
+        header_row = ttk.Frame(table_frame)
+        header_row.pack(fill=tk.X, pady=5)
+        header_row.columnconfigure(1, weight=1)
         ttk.Label(
-            header_frame, text="Service", width=40, font=("TkDefaultFont", 9, "bold")
-        ).pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
-
-        for _ in range(6):
-            ttk.Label(header_frame, text="", width=11).pack(side=tk.LEFT, padx=2)
-
+            header_row, text="Status", width=8, font=("TkDefaultFont", 9, "bold")
+        ).grid(row=0, column=0, padx=5)
+        ttk.Label(header_row, text="Service", font=("TkDefaultFont", 9, "bold")).grid(
+            row=0, column=1, padx=5, sticky="w"
+        )
         ttk.Label(
-            header_frame, text="Status", width=6, font=("TkDefaultFont", 9, "bold")
-        ).pack(side=tk.LEFT, padx=2)
-
-        separator = ttk.Separator(self.scrollable_frame, orient="horizontal")
-        separator.pack(fill=tk.X, padx=5, pady=2)
+            header_row, text="Actions", width=12, font=("TkDefaultFont", 9, "bold")
+        ).grid(row=0, column=2, padx=5)
+        separator = ttk.Separator(table_frame, orient="horizontal")
+        separator.pack(fill=tk.X, pady=5)
 
         for idx, service in enumerate(filtered_services):
-            row_container = ttk.Frame(self.scrollable_frame)
-            row_container.pack(fill=tk.X, padx=5, pady=0)
-
-            service_frame = ttk.Frame(row_container)
-            service_frame.pack(fill=tk.X, pady=1)
-            service_frame.columnconfigure(0, weight=1)
-
-            label = ttk.Label(
-                service_frame,
-                text=f"{idx+1}. {service.get('label', 'Unknown')} ({service.get('prefix', 'unknown')})",
-                width=40,
-            )
-            label.grid(row=0, column=0, sticky="ew", padx=5)
-
-            tooltip_text = service.get("original_entry", "No original entry available")
-            # TODO: fix tooltip content
-            # self.create_tooltip(label, tooltip_text)
-
+            row_frame = ttk.Frame(table_frame)
+            row_frame.pack(fill=tk.X, pady=3)
+            row_frame.columnconfigure(1, weight=1)
             service_id = id(service)
             self.service_widgets[service_id] = {}
+            self.service_widgets[service_id]["frame"] = row_frame
 
-            self.service_widgets[service_id]["frame"] = service_frame
-            self.service_widgets[service_id]["label"] = label
-
-            if "uuid" in service and service["uuid"]:
-                uuid_label = ttk.Label(
-                    service_frame,
-                    text=f"UUID: {service['uuid']}",
-                    font=("TkDefaultFont", 8),
-                )
-                uuid_label.grid(row=1, column=0, sticky="w", padx=25)
-                self.service_widgets[service_id]["uuid_label"] = uuid_label
-            else:
-                uuid_frame = tk.Frame(service_frame)
-                uuid_frame.grid(row=1, column=0, sticky="w", padx=25)
-
-                ttk.Label(uuid_frame, text="UUID: ", font=("TkDefaultFont", 8)).pack(
-                    side=tk.LEFT
-                )
-
-                uuid_var = tk.StringVar(value="")
-                uuid_entry = ttk.Entry(
-                    uuid_frame,
-                    textvariable=uuid_var,
-                    width=36,
-                    font=("TkDefaultFont", 8),
-                )
-                uuid_entry.pack(side=tk.LEFT)
-
-                self.service_widgets[service_id]["uuid_frame"] = uuid_frame
-                self.service_widgets[service_id]["uuid_entry"] = uuid_entry
-                self.service_widgets[service_id]["uuid_var"] = uuid_var
-
-                def update_uuid(name, index, mode, s=service, var=uuid_var):
-                    s["uuid"] = var.get()
-
-                uuid_var.trace_add("write", update_uuid)
-
-            buttons_frame = ttk.Frame(service_frame)
-            buttons_frame.grid(row=0, column=1, sticky="e")
-
-            subscriptions_btn = ttk.Button(
-                buttons_frame,
-                text="Subscriptions",
-                command=lambda s=service: self.show_subscriptions(s),
-            )
-            subscriptions_btn.pack(side=tk.LEFT, padx=2)
-
-            status_btn = ttk.Button(
-                buttons_frame,
-                text="Status",
-                command=lambda s=service: self.show_status(s),
-            )
-            status_btn.pack(side=tk.LEFT, padx=2)
-
-            remove_btn = ttk.Button(
-                buttons_frame,
-                text="Remove",
-                command=lambda s=service: self.remove_service(s),
-            )
-            remove_btn.pack(side=tk.LEFT, padx=2)
-
-            add_btn = ttk.Button(
-                buttons_frame, text="Add", command=lambda s=service: self.add_service(s)
-            )
-            add_btn.pack(side=tk.LEFT, padx=2)
-
-            suspend_btn = ttk.Button(
-                buttons_frame,
-                text="Suspend",
-                command=lambda s=service: self.suspend_service(s),
-            )
-            suspend_btn.pack(side=tk.LEFT, padx=2)
-
-            resume_btn = ttk.Button(
-                buttons_frame,
-                text="Resume",
-                command=lambda s=service: self.resume_service(s),
-            )
-            resume_btn.pack(side=tk.LEFT, padx=2)
-
-            status_frame = tk.Frame(buttons_frame, width=20, height=20)
-            status_frame.pack(side=tk.LEFT, padx=(5, 2))
-
+            status_cell = ttk.Frame(row_frame, width=40)
+            status_cell.grid(row=0, column=0, rowspan=2, padx=5)
             status_indicator = tk.Canvas(
-                status_frame,
+                status_cell,
                 width=16,
                 height=16,
                 bg=self.winfo_toplevel()["bg"],
                 highlightthickness=0,
             )
-            status_indicator.pack()
-
+            status_indicator.pack(pady=10)
             led_color = "gray"
+            if "status" in service:
+                led_color = (
+                    "yellow" if service["status"].get("suspended", False) else "green"
+                )
             led_id = status_indicator.create_oval(
                 2, 2, 14, 14, fill=led_color, outline="black"
             )
-
             self.service_widgets[service_id]["status_indicator"] = status_indicator
             self.service_widgets[service_id]["led_id"] = led_id
+            self.service_widgets[service_id]["status_cell"] = status_cell
 
             status_tooltip_text = "Unknown status"
             if "status" in service:
                 status_tooltip_text = (
-                    "Active"
-                    if not service["status"].get("suspended", False)
-                    else "Suspended"
+                    "Suspended"
+                    if service["status"].get("suspended", False)
+                    else "Active"
                 )
-
+                if service["status"].get("conflict", False):
+                    status_tooltip_text += " (CONFLICT)"
             status_tooltip = tk.Label(
-                status_frame.master,
+                status_cell,
                 text=status_tooltip_text,
                 background="#ffffe0",
                 relief="solid",
                 borderwidth=1,
             )
             status_tooltip.pack_forget()
-
             self.service_widgets[service_id]["status_tooltip"] = status_tooltip
+            status_indicator.bind(
+                "<Enter>",
+                lambda e, tip=status_tooltip, w=status_indicator: tip.place(
+                    x=w.winfo_rootx(), y=w.winfo_rooty() + 20
+                ),
+            )
+            status_indicator.bind(
+                "<Leave>", lambda e, tip=status_tooltip: tip.place_forget()
+            )
 
-            def on_enter(event, tooltip=status_tooltip, widget=status_indicator):
-                x = widget.winfo_rootx()
-                y = widget.winfo_rooty() + 20
-                tooltip.place(x=x, y=y)
+            service_cell = ttk.Frame(row_frame)
+            service_cell.grid(row=0, column=1, sticky="ew", padx=5)
+            service_cell.columnconfigure(0, weight=1)
+            self.service_widgets[service_id]["service_cell"] = service_cell
+            name_frame = ttk.Frame(service_cell)
+            name_frame.grid(row=0, column=0, sticky="ew")
+            name_frame.columnconfigure(0, weight=1)
+            label = ttk.Label(
+                name_frame,
+                text=f"{idx+1}. {service.get('label', 'Unknown')} ({service.get('prefix', 'unknown')})",
+                wraplength=400,
+            )
+            label.grid(row=0, column=0, sticky="w")
+            label.bind("<Button-1>", lambda e, s=service: self.show_service_details(s))
+            self.service_widgets[service_id]["label"] = label
 
-            def on_leave(event, tooltip=status_tooltip):
-                tooltip.place_forget()
+            uuid_container = ttk.Frame(service_cell)
+            uuid_container.grid(row=1, column=0, sticky="w", pady=(0, 5))
+            self.service_widgets[service_id]["uuid_container"] = uuid_container
+            if "uuid" in service and service["uuid"]:
+                uuid_label = ttk.Label(
+                    uuid_container,
+                    text=f"UUID: {service['uuid']}",
+                    font=("TkDefaultFont", 8),
+                    foreground=(
+                        "black"
+                        if not service.get("status", {}).get("conflict", False)
+                        else "red"
+                    ),
+                )
+                uuid_label.pack(side=tk.LEFT, anchor="w")
+                uuid_label.bind(
+                    "<Button-1>", lambda e, s=service: self.show_service_details(s)
+                )
+                self.service_widgets[service_id]["uuid_label"] = uuid_label
+            else:
+                ttk.Label(
+                    uuid_container, text="UUID: ", font=("TkDefaultFont", 8)
+                ).pack(side=tk.LEFT)
+                uuid_var = tk.StringVar(value="")
+                uuid_entry = ttk.Entry(
+                    uuid_container,
+                    textvariable=uuid_var,
+                    width=36,
+                    font=("TkDefaultFont", 8),
+                )
+                uuid_entry.pack(side=tk.LEFT)
+                self.service_widgets[service_id]["uuid_var"] = uuid_var
+                self.service_widgets[service_id]["uuid_entry"] = uuid_entry
+                uuid_var.trace_add(
+                    "write",
+                    lambda n, i, m, s=service, var=uuid_var: self._update_uuid(s, var),
+                )
 
-            status_indicator.bind("<Enter>", on_enter)
-            status_indicator.bind("<Leave>", on_leave)
+            actions_cell = ttk.Frame(row_frame)
+            actions_cell.grid(row=0, column=2, rowspan=2, padx=5)
+            self.service_widgets[service_id]["actions_cell"] = actions_cell
 
-            separator = ttk.Separator(row_container, orient="horizontal")
-            separator.pack(fill=tk.X, pady=2)
+            actions_var = tk.StringVar()
+            actions_dropdown = ttk.Combobox(
+                actions_cell,
+                values=[
+                    "Actions",
+                    "Subscriptions",
+                    "Status",
+                    "Remove",
+                    "Add",
+                    "Suspend",
+                    "Resume",
+                    "Details",
+                ],
+                state="readonly",
+                width=12,
+            )
+            actions_dropdown.set("Actions")
+            actions_dropdown.pack(pady=10)
+
+            self.service_widgets[service_id]["actions_dropdown"] = actions_dropdown
+            self.service_widgets[service_id]["actions_var"] = actions_var
+
+            service_actions = {
+                "Subscriptions": lambda s=service: self.show_subscriptions(s),
+                "Status": lambda s=service: self.show_status(s),
+                "Remove": lambda s=service: self.remove_service(s),
+                "Add": lambda s=service: self.add_service(s),
+                "Suspend": lambda s=service: self.suspend_service(s),
+                "Resume": lambda s=service: self.resume_service(s),
+                "Details": lambda s=service: self.show_service_details(s),
+            }
+
+            def execute_action(
+                event, s=service, actions=service_actions, dropdown=actions_dropdown
+            ):
+                selected = dropdown.get()
+                if selected != "Actions" and selected in actions:
+                    actions[selected]()
+                dropdown.set("Actions")
+
+            actions_dropdown.bind("<<ComboboxSelected>>", execute_action)
 
         self._update_scroll_region()
 
-    def create_tooltip(self, widget, text):
-        tooltip = tk.Label(
-            self.winfo_toplevel(),
-            text=text,
-            background="#ffffe0",
-            relief="solid",
-            borderwidth=1,
-            wraplength=600,
-            justify="left",
+    def _update_uuid(self, service, var):
+        service["uuid"] = var.get()
+        key = self.get_service_key(service)
+        if key and var.get():
+            self.service_uuid_map[key] = var.get()
+
+    def show_service_details(self, service):
+        """Show a popup with service details in tabs"""
+        details_window = tk.Toplevel(self)
+        details_window.title(f"Service Details: {service.get('label', 'Unknown')}")
+        details_window.geometry("800x500")
+        details_window.transient(self.winfo_toplevel())
+
+        main_frame = ttk.Frame(details_window, padding=10)
+        main_frame.pack(fill=tk.BOTH, expand=True)
+
+        title_text = f"{service.get('label', 'Unknown Service')}\nPrefix: {service.get('prefix', 'Unknown')}"
+        if "uuid" in service and service["uuid"]:
+            title_text += f"\nUUID: {service['uuid']}"
+
+        title_label = ttk.Label(
+            main_frame, text=title_text, font=("TkDefaultFont", 10, "bold")
         )
-        tooltip.pack_forget()
+        title_label.pack(anchor="w", pady=(0, 10))
 
-        def on_enter(event):
-            x = widget.winfo_rootx() + 25
-            y = widget.winfo_rooty() + 25
-            tooltip.place(x=x, y=y)
+        notebook = ttk.Notebook(main_frame)
+        notebook.pack(fill=tk.BOTH, expand=True)
 
-        def on_leave(event):
-            tooltip.place_forget()
+        status_frame = ttk.Frame(notebook, padding=5)
+        notebook.add(status_frame, text="Status")
 
-        widget.bind("<Enter>", on_enter)
-        widget.bind("<Leave>", on_leave)
+        status_text = self.create_scrolled_text(status_frame)
+
+        self.fill_status_tab(status_text, service)
+
+        close_button = ttk.Button(
+            main_frame, text="Close", command=details_window.destroy
+        )
+        close_button.pack(pady=(10, 0))
+
+    def create_scrolled_text(self, parent):
+        """Create a scrolled text widget"""
+        frame = ttk.Frame(parent)
+        frame.pack(fill=tk.BOTH, expand=True)
+
+        v_scroll = ttk.Scrollbar(frame)
+        v_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+
+        h_scroll = ttk.Scrollbar(frame, orient=tk.HORIZONTAL)
+        h_scroll.pack(side=tk.BOTTOM, fill=tk.X)
+
+        text = tk.Text(
+            frame,
+            wrap=tk.NONE,
+            xscrollcommand=h_scroll.set,
+            yscrollcommand=v_scroll.set,
+        )
+        text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        v_scroll.config(command=text.yview)
+        h_scroll.config(command=text.xview)
+
+        return text
+
+    def fill_config_tab(self, text_widget, service):
+        text_widget.config(state=tk.NORMAL)
+        text_widget.delete("1.0", tk.END)
+
+        original_entry = service.get("original_entry", "")
+
+        if original_entry:
+            entry_lines = original_entry.strip().split("\n")
+            formatted_entry = ""
+
+            text_widget.insert(tk.END, "[\n")
+
+            for line in entry_lines:
+                text_widget.insert(tk.END, "    " + line + "\n")
+
+            text_widget.insert(tk.END, "]")
+        elif "metadata" in service and "config" in service["metadata"]:
+            try:
+                text_widget.insert(tk.END, "[\n")
+
+                text_widget.insert(tk.END, "    [\n")
+
+                config = service["metadata"]["config"]
+
+                if isinstance(config, dict):
+                    for key, value in config.items():
+                        if key == "id":  # Skip ID field
+                            continue
+
+                        if key == "prefix":
+                            text_widget.insert(
+                                tk.END, f'        {{prefix, "{value}"}},\n'
+                            )
+                        elif key == "type":
+                            text_widget.insert(tk.END, f"        {{type, {value}}},\n")
+                        elif key == "module":
+                            text_widget.insert(
+                                tk.END, f"        {{module, {value}}},\n"
+                            )
+                        elif key == "args" and isinstance(value, list):
+                            text_widget.insert(tk.END, f"        {{args, [\n")
+                            for arg in value:
+                                if isinstance(arg, dict):
+                                    for arg_key, arg_value in arg.items():
+                                        if isinstance(arg_value, str):
+                                            text_widget.insert(
+                                                tk.END,
+                                                f'            {{{arg_key}, "{arg_value}"}},\n',
+                                            )
+                                        else:
+                                            text_widget.insert(
+                                                tk.END,
+                                                f"            {{{arg_key}, {arg_value}}},\n",
+                                            )
+                            text_widget.insert(tk.END, f"        ]}}\n")
+                        else:
+                            if isinstance(value, str):
+                                text_widget.insert(
+                                    tk.END, f'        {{{key}, "{value}"}},\n'
+                                )
+                            else:
+                                text_widget.insert(
+                                    tk.END, f"        {{{key}, {value}}},\n"
+                                )
+
+                text_widget.insert(tk.END, "    ]\n")
+
+                text_widget.insert(tk.END, "]")
+            except Exception as e:
+                self.log_error(f"Error formatting config data: {str(e)}")
+                text_widget.insert(tk.END, "Error parsing service configuration")
+        else:
+            text_widget.insert(tk.END, "No configuration available")
+
+        text_widget.tag_configure("heading", font=("TkDefaultFont", 10, "bold"))
+        text_widget.config(state=tk.DISABLED)
+
+    def fill_status_tab(self, text_widget, service):
+        """Fill the status tab with service status data"""
+        text_widget.config(state=tk.NORMAL)
+        text_widget.delete("1.0", tk.END)
+
+        if "status" in service:
+            suspended = service["status"].get("suspended", False)
+            status_text = "SUSPENDED" if suspended else "ACTIVE"
+            if service["status"].get("conflict", False):
+                status_text += " (CONFLICT)"
+
+            text_widget.insert(tk.END, f"Current Status: {status_text}\n\n", "heading")
+
+        if "metadata" in service and "status" in service["metadata"]:
+            text_widget.insert(tk.END, "Status Details:\n", "heading")
+            status = service["metadata"]["status"]
+
+            try:
+                formatted_status = json.dumps(status, indent=2)
+                text_widget.insert(tk.END, formatted_status)
+            except:
+                for key, value in status.items():
+                    text_widget.insert(tk.END, f"{key}: {value}\n")
+        else:
+            text_widget.insert(tk.END, "No status data available.")
+
+        text_widget.tag_configure("heading", font=("TkDefaultFont", 10, "bold"))
+        text_widget.config(state=tk.DISABLED)
+
+    def generate_tooltip_text(self, service):
+        pass
+
+    def create_tooltip(self, widget, text):
+        pass
 
     def show_subscriptions(self, service):
         uuid = service.get("uuid", "")
@@ -1083,23 +1399,19 @@ class ServicesFrame(tk.Frame):
                 url, data=payload, headers=headers, verify=False, timeout=10
             )
 
-            # Create popup window to display results
             result_window = tk.Toplevel(self)
             result_window.title(title)
             result_window.geometry("600x400")
             result_window.transient(self.winfo_toplevel())
 
-            # Create frame with scrollable text area
             frame = ttk.Frame(result_window, padding=10)
             frame.pack(fill=tk.BOTH, expand=True)
 
-            # Add status code and timestamp
             ttk.Label(
                 frame,
                 text=f"Status: {response.status_code} - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
             ).pack(anchor="w", pady=(0, 10))
 
-            # Create text widget with scrollbars
             text_frame = ttk.Frame(frame)
             text_frame.pack(fill=tk.BOTH, expand=True)
 
@@ -1124,7 +1436,6 @@ class ServicesFrame(tk.Frame):
             if response.status_code == 200:
                 result_text.insert(tk.END, response.text)
 
-                # Try to format if it's JSON
                 try:
                     parsed = json.loads(response.text)
                     formatted = json.dumps(parsed, indent=2)
@@ -1137,12 +1448,10 @@ class ServicesFrame(tk.Frame):
                     tk.END, f"Error: HTTP {response.status_code}\n\n{response.text}"
                 )
 
-            # Close button
             ttk.Button(frame, text="Close", command=result_window.destroy).pack(
                 pady=(10, 0)
             )
 
-            # If this was a suspend or resume action, update the service status
             if "suspend" in url or "resume" in url:
                 self.after(1000, self.update_service_status)
 
@@ -1150,10 +1459,86 @@ class ServicesFrame(tk.Frame):
             messagebox.showerror("Error", f"Failed to perform action: {str(e)}")
 
     def remove_service(self, service):
-        messagebox.showinfo("Remove", f"Remove service {service['label']}")
+        uuid = service.get("uuid", "")
+        if not uuid:
+            messagebox.showerror("Error", "Service UUID is required for removal")
+            return
+        server = self.server_var.get().rstrip("/")
+        url = f"{server}/cloudi/api/rpc/services_remove.erl"
+        payload = json.dumps([uuid])
+        try:
+            headers = {"Content-Type": "application/json", "Accept": "application/json"}
+            response = requests.post(
+                url, data=payload, headers=headers, verify=False, timeout=10
+            )
+            if response.status_code == 200:
+                messagebox.showinfo("Success", "Service removed successfully")
+                service["uuid"] = ""
+                self.update_service_display(id(service))
+                self.update_service_status()
+            else:
+                messagebox.showerror(
+                    "Error", f"Failed to remove service: HTTP {response.status_code}"
+                )
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to remove service: {str(e)}")
 
     def add_service(self, service):
-        messagebox.showinfo("Add", f"Add service like {service['label']}")
+        popup = tk.Toplevel(self)
+        popup.title("Add Service")
+        popup.geometry("600x400")
+        popup.transient(self.winfo_toplevel())
+
+        frame = ttk.Frame(popup, padding=10)
+        frame.pack(fill=tk.BOTH, expand=True)
+
+        top_frame = tk.Frame(frame)
+        top_frame.pack(fill=tk.X)
+        ttk.Label(top_frame, text="Enter request body for adding the service:").pack(
+            side=tk.LEFT, anchor="w"
+        )
+
+        button_frame = tk.Frame(top_frame)
+        button_frame.pack(side=tk.RIGHT)
+
+        def send_add_request():
+            body_text = text_editor.get("1.0", tk.END).strip()
+            if not body_text:
+                messagebox.showwarning("Warning", "Request body cannot be empty")
+                return
+            server = self.server_var.get().rstrip("/")
+            url = f"{server}/cloudi/api/rpc/services_add.erl"
+            try:
+                headers = {
+                    "Content-Type": "application/json",
+                    "Accept": "application/json",
+                }
+                response = requests.post(
+                    url, data=body_text, headers=headers, verify=False, timeout=10
+                )
+                if response.status_code == 200:
+                    messagebox.showinfo("Success", "Service added successfully")
+                    self.update_service_status()
+                    popup.destroy()
+                else:
+                    messagebox.showerror(
+                        "Error", f"Failed to add service: HTTP {response.status_code}"
+                    )
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to add service: {str(e)}")
+
+        send_button = ttk.Button(button_frame, text="Send", command=send_add_request)
+        send_button.pack(side=tk.RIGHT, padx=5)
+        cancel_button = ttk.Button(button_frame, text="Cancel", command=popup.destroy)
+        cancel_button.pack(side=tk.RIGHT, padx=5)
+
+        text_frame = ttk.Frame(frame)
+        text_frame.pack(fill=tk.BOTH, expand=True, pady=(10, 0))
+        v_scroll = ttk.Scrollbar(text_frame)
+        v_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        text_editor = tk.Text(text_frame, wrap="none", yscrollcommand=v_scroll.set)
+        text_editor.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        v_scroll.config(command=text_editor.yview)
 
     def save_server(self):
         server = self.server_var.get().strip()
@@ -1288,3 +1673,10 @@ class ServicesFrame(tk.Frame):
         elif "file_path" in service and "prefix" in service:
             return f"external:{service['file_path']}:{service['prefix']}"
         return None
+
+    def unload_services(self):
+        """Clear all loaded service configurations"""
+        self.services_data = []
+        self.service_uuid_map = {}
+        self.display_services()
+        self.log_info("Services unloaded")
